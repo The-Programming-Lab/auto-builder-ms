@@ -6,7 +6,7 @@ import requests
 router = APIRouter(prefix=base_path, tags=["example"])
 
 
-@router.get("/build-container")
+@router.get("/build")
 async def example(TO_BUILD_REPO: str):
     # return {"message": hello_world}
     # Set up variables for the GitHub repository and workflow
