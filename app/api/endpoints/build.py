@@ -1,9 +1,9 @@
 from fastapi import APIRouter
-from app.api.config import base_path, hello_world
+from app.api.config import BASE_PATH
 from app.api.config import GITHUB_TOKEN
 import requests
 
-router = APIRouter(prefix=base_path, tags=["example"])
+router = APIRouter(prefix=BASE_PATH, tags=["example"])
 
 
 @router.post("/build")

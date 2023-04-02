@@ -2,17 +2,24 @@ import os
 from dotenv import load_dotenv
 
 
+def get_env_var(var_name: str) -> str:
+    if "APP_ENV" in os.environ and os.environ['APP_ENV'] == 'production':
+        return os.environ[var_name]
+    else:
+        return os.getenv(var_name)
+    
 if "APP_ENV" in os.environ and os.environ['APP_ENV'] == 'production':
-    hello_world = os.environ['HELLO_WORLD']
-    health_check_endpoint = os.environ['HEALTH_CHECK_ENDPOINT']
-    base_path = os.environ['BASE_PATH']
-    GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
-    IMAGE_NAME = os.environ['IMAGE_NAME']
+    get_func = get_env_var
 else:
     load_dotenv('.env')
-    hello_world = os.getenv('HELLO_WORLD')
-    health_check_endpoint = os.getenv('HEALTH_CHECK_ENDPOINT')
-    base_path = os.getenv('BASE_PATH')
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    IMAGE_NAME = os.getenv('IMAGE_NAME')
+    get_func = os.getenv
+
+HELLO_WORLD = get_func('HELLO_WORLD')
+HEALTH_CHECK_ENDPOINT = get_func('HEALTH_CHECK_ENDPOINT')
+BASE_PATH = get_func('BASE_PATH')
+GITHUB_TOKEN = get_func('GITHUB_TOKEN')
+IMAGE_PATH = get_func('IMAGE_PATH')
+AUTH_FILE_PATH = get_func('AUTH_FILE_PATH')
+PROJECT_ID = get_func('PROJECT_ID')
+CLUSTER_ZONE = get_func('CLUSTER_ZONE')
 
