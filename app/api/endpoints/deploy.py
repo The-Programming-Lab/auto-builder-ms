@@ -1,10 +1,10 @@
 from fastapi import APIRouter
-from app.api.config import base_path
 import subprocess
 import os
-from app.api.config import IMAGE_NAME
+from app.api.config import IMAGE_PATH, BASE_PATH, CLUSTER_ZONE, PROJECT_ID
+import json
 
-router = APIRouter(prefix=base_path, tags=["example"])
+router = APIRouter(prefix=BASE_PATH, tags=["example"])
 
 
 def update_yaml_file(file_name, replacement_dict):
@@ -33,24 +33,35 @@ def apply_yaml_file(file_name, changes, enable_delete=True):
     if enable_delete and os.path.exists(file):
         os.remove(file)
 
+# cluster names: main, main2
+# main-client 3000
+# backend-template 8000
+# auth-ms 8000
 
 @router.post("/deployment")
-async def deployment():
-    deployment_name = 'backend-template'
-    image_name = IMAGE_NAME
-    port_number = '8000'
-
+async def deployment(deployment_name: str, port_number: str, cluster_name: str):
+    try:
+        # get cluster credentials
+        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
+        # get most recent image  
+        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/the-programming-lab-379219/hello-repo/{deployment_name} --format=json --sort-by=timestamp", shell=True)
+        output = json.loads(output)
+    except subprocess.CalledProcessError as e:
+        print(e)
+        return 'error'
+    image_name = IMAGE_PATH + deployment_name + '@' + output[-1]['digest']
+    # set env variables for changes in yaml file
     env = {
         'HEALTH_CHECK_ENDPOINT': '/health-check',
         'BASE_PATH': '/user/braeden/api',
         'HELLO_WORLD': 'Hello World from local'
     }
-
     env_string = ''
     for key, value in env.items():
         # NOTE: The space before the key is important
         env_string += f'          - name: {key}\n            value: {value}\n'
 
+    # make changes to yaml file
     changes = {
         '<deployment-name>': deployment_name,
         '<image-name>': image_name,
@@ -59,12 +70,14 @@ async def deployment():
         '<environment-variables>': env_string
     }
 
+    # apply yaml deploy
     apply_yaml_file('deploy', changes)
 
     return "ok"
 
+# main-client-service 3000 main-client LoadBalancer main2
 @router.post("/service")
-async def service():
+async def service(service_name: str, port_number: str, deployment_name: str, service_type: str, cluster_name: str):
     # <annotations>
     # cloud.google.com/backend-config: '{"ports": {"http":"api1-backendconfig"}}'
 
@@ -72,10 +85,12 @@ async def service():
     # backendConfig:
     #   name: api1-backendconfig
 
-    service_name = 'backend-template-service'
-    port_number = '8000'
-    deployment_name = 'backend-template'
-    service_type = 'ClusterIP'
+    try:
+        # get cluster credentials
+        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
+    except subprocess.CalledProcessError as e:
+        print(e)
+        return 'error'
 
     changes = {
         '<service-name>': service_name,
