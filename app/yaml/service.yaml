@@ -21,7 +21,8 @@ metadata:
 spec:
   type: <service-type>
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: <port-number>
   selector:
     app: <deployment-name>

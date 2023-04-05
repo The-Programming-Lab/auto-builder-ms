@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.config import BASE_PATH
+from app.api.config import BASE_PATH, PROJECT_ID
 from app.api.config import GITHUB_TOKEN
 import requests
 
@@ -15,6 +15,7 @@ async def start_build(TO_BUILD_REPO: str):
     # !!! automatically get the latest workflow id
     # from https://api.github.com/repos/The-Programming-Lab/user-builder/actions/workflows
     WORKFLOW_ID = "52757712"
+    PROJECT_ID = "proven-cogency-382800"
 
 
     # Define the API endpoint and request parameters
@@ -32,7 +33,7 @@ async def start_build(TO_BUILD_REPO: str):
         "ref": "main",
         "inputs": {
             "IMAGE_NAME": TO_BUILD_REPO,
-            "PROJECT_ID": "the-programming-lab-379219",
+            "PROJECT_ID": PROJECT_ID,
             "BUILD_REPO_NAME": TO_BUILD_REPO
         }
     }

@@ -44,7 +44,7 @@ async def deployment(deployment_name: str, port_number: str, cluster_name: str):
         # get cluster credentials
         subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
         # get most recent image  
-        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/the-programming-lab-379219/hello-repo/{deployment_name} --format=json --sort-by=timestamp", shell=True)
+        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/{PROJECT_ID}/hello-repo/{deployment_name} --format=json --sort-by=timestamp", shell=True)
         output = json.loads(output)
     except subprocess.CalledProcessError as e:
         print(e)
