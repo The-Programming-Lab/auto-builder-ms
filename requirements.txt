@@ -2,9 +2,4 @@ fastapi
 uvicorn
 python-dotenv
 requests
-# google-auth 
-# google-auth-oauthlib 
-# google-auth-httplib2 
-# kubernetes
-# google-cloud-container
-# google-cloud-deploy
+firebase-admin
