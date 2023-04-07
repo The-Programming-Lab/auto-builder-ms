@@ -25,5 +25,4 @@ archive.zip
 # vim temporary files
 *~
 .*.sw?
-*.json
 *_updated.yaml

@@ -1,5 +1,9 @@
-from fastapi import APIRouter
-from app.api.config import BASE_PATH
+from fastapi import APIRouter, Depends
+from app.core.config import BASE_PATH
+from app.core.firebase_config import db
+from app.core.security import verify_user, verify_admin
+from fastapi.security import HTTPBearer
+
 '''
 swap to firestore db
 
@@ -43,61 +47,15 @@ service cloud.firestore {
   }
 }
 
-
-Collection Structure (v1):
-Collection users:
-
-Document {user_id}:
-Field displayName: (string) Display name of the user
-Field email: (string) Email address of the user
-Field photoURL: (string, optional) Profile picture URL of the user
-Field created_at: (timestamp) Account creation date and time
-Collection webapps:
-
-Document {webapp_id}:
-Field user_id: (string) The ID of the user who created the web app
-Field name: (string) Name of the web app
-Field description: (string) Description of the web app
-Field repo: (string) Repository URL of the web app
-Field env: (map) Environment variables as key-value pairs
-Field created_at: (timestamp) Web app creation date and time
-Field updated_at: (timestamp) Web app last update date and time
-Collection blogs:
-
-Document {blog_id}:
-Field webapp_id: (string) The ID of the web app the blog post is about
-Field user_id: (string) The ID of the user who created the blog post
-Field title: (string) Title of the blog post
-Field content: (string) Content of the blog post
-Field created_at: (timestamp) Blog post creation date and time
-Field updated_at: (timestamp) Blog post last update date and time
-Field upvotes: (integer) Number of upvotes
-Field downvotes: (integer) Number of downvotes
-Collection comments:
-
-Document {comment_id}:
-Field blog_id: (string) The ID of the blog post the comment is related to
-Field user_id: (string) The ID of the user who wrote the comment
-Field content: (string) Content of the comment
-Field created_at: (timestamp) Comment creation date and time
-Collection questions:
-
-Document {question_id}:
-Field webapp_id: (string) The ID of the web app the question is about
-Field user_id: (string) The ID of the user who asked the question
-Field title: (string) Title of the question
-Field content: (string) Content of the question
-Field created_at: (timestamp) Question creation date and time
-Field updated_at: (timestamp) Question last update date and time
-
-
 '''
 
 router = APIRouter(prefix=BASE_PATH + "/website", tags=["Create and Edit Website"])
 
+http_bearer = HTTPBearer()
+
 
 @router.post("/")
-async def create_website():
+async def create_website(decoded_token: dict = Depends(verify_user)):
     """
     Create a new website
 
@@ -112,7 +70,7 @@ async def create_website():
     return {"message": "Hello World"}
 
 @router.get("/")
-async def get_all_websites():
+async def get_all_websites(decoded_token: dict = Depends(verify_admin)):
     """
     Get all websites
     """

@@ -1,21 +1,21 @@
 from fastapi import APIRouter
 import subprocess
 import os
-from app.api.config import IMAGE_PATH, BASE_PATH, CLUSTER_ZONE, PROJECT_ID
+from app.core.config import IMAGE_PATH, BASE_PATH, CLUSTER_ZONE, PROJECT_ID
 import json
 
 router = APIRouter(prefix=BASE_PATH, tags=["example"])
 
 
 def update_yaml_file(file_name, replacement_dict):
-    original_file_name = './app/yaml/' + file_name + '.yaml'
+    original_file_name = './app/utils/' + file_name + '.yaml'
     with open(original_file_name, 'r') as file:
         yaml_data = file.read()
 
     for key, value in replacement_dict.items():
         yaml_data = yaml_data.replace(key, value)
 
-    new_file_name = './app/yaml/' + file_name + '_updated.yaml'
+    new_file_name = './app/utils/' + file_name + '_updated.yaml'
     with open(new_file_name, 'w') as file:
         file.write(yaml_data)
 

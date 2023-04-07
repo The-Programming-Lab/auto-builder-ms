@@ -1,6 +1,5 @@
 from fastapi import APIRouter
-from app.api.config import BASE_PATH, PROJECT_ID
-from app.api.config import GITHUB_TOKEN
+from app.core.config import BASE_PATH, PROJECT_ID, GITHUB_TOKEN
 import requests
 
 router = APIRouter(prefix=BASE_PATH, tags=["example"])
