@@ -3,3 +3,4 @@ uvicorn
 python-dotenv
 requests
 firebase-admin
+base32_crockford

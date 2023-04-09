@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends
-from app.core.config import BASE_PATH
 from app.core.firebase_config import db
 from app.core.security import verify_user, verify_admin
-from fastapi.security import HTTPBearer
 
 '''
 swap to firestore db
@@ -49,10 +47,7 @@ service cloud.firestore {
 
 '''
 
-router = APIRouter(prefix=BASE_PATH + "/website", tags=["Create and Edit Website"])
-
-http_bearer = HTTPBearer()
-
+router = APIRouter(prefix="/website", tags=["Create and Edit Website"])
 
 @router.post("/")
 async def create_website(decoded_token: dict = Depends(verify_user)):
@@ -67,6 +62,7 @@ async def create_website(decoded_token: dict = Depends(verify_user)):
     }
     ```
     """
+    print(decoded_token)
     return {"message": "Hello World"}
 
 @router.get("/")

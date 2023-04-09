@@ -1,24 +1,21 @@
-from fastapi import APIRouter
-from app.core.config import BASE_PATH, PROJECT_ID, GITHUB_TOKEN
+from fastapi import APIRouter, Depends
+from app.core.config import PROJECT_ID, GITHUB_TOKEN, REPO_BUILDER_PATH, REPO_WORKFLOW_ID
 import requests
+from app.core.security import verify_user
+from app.core.firebase_config import db
+from app.utils.utility import get_website_by_name
+import base32_crockford as b32c
 
-router = APIRouter(prefix=BASE_PATH, tags=["example"])
+
+router = APIRouter(prefix="/build", tags=["GitHub Workflow"])
 
 
-@router.post("/build")
-async def start_build(TO_BUILD_REPO: str):
-    # return {"message": hello_world}
-    # Set up variables for the GitHub repository and workflow
-    REPO_OWNER = "The-Programming-Lab"
-    REPO_NAME = "user-builder"
-    # !!! automatically get the latest workflow id
-    # from https://api.github.com/repos/The-Programming-Lab/user-builder/actions/workflows
-    WORKFLOW_ID = "52757712"
-    PROJECT_ID = "proven-cogency-382800"
-
+@router.post("/")
+async def start_build(website_name: str, decoded_token: dict = Depends(verify_user)):
+    website = get_website_by_name(website_name, decoded_token)
 
     # Define the API endpoint and request parameters
-    API_ENDPOINT = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/actions/workflows/{WORKFLOW_ID}/dispatches"
+    API_ENDPOINT = f"https://api.github.com/repos/{REPO_BUILDER_PATH}/actions/workflows/{REPO_WORKFLOW_ID}/dispatches"
 
     # Set up headers for the API request
     headers = {
@@ -27,13 +24,18 @@ async def start_build(TO_BUILD_REPO: str):
         "Content-Type": "application/json"
     }
 
+    # !!! 
+    # encoded_user_id = b32c.encode(int.from_bytes(website.website_id.encode('utf-8'), 'big')).lower()
+    # website.encoded_id = encoded_user_id
+    # website.save()
+
     # Set up the request data
     data = {
         "ref": "main",
         "inputs": {
-            "IMAGE_NAME": TO_BUILD_REPO,
+            "IMAGE_NAME": website.encoded_id,
             "PROJECT_ID": PROJECT_ID,
-            "BUILD_REPO_NAME": TO_BUILD_REPO
+            "BUILD_REPO_NAME": website.repo_name
         }
     }
 
@@ -49,7 +51,7 @@ async def start_build(TO_BUILD_REPO: str):
         return {"message": f"Failed to dispatch workflow. Response code: {response.status_code}"}
 
 
-@router.get("/build/done")
+@router.get("/done")
 async def check_build_done(workflow_id: str):
     # Set the GitHub repository and build ID
     repo = 'my-org/my-repo'
