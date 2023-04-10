@@ -16,6 +16,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: <service-name>
+  namespace: <namespace-name>
+  labels:
+    username: <username-label>
+    website: <website-label>
   annotations:
     <annotations>
 spec:

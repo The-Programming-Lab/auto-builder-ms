@@ -2,8 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: <deployment-name>
+  namespace: <namespace-name>
   labels:
-    app: <deployment-name>
+    username: <username-label>
+    website: <website-label>
 spec:
   replicas: 1
   selector:

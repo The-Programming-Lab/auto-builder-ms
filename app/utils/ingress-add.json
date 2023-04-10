@@ -7,7 +7,7 @@
         "pathType": "Prefix",      
         "backend": {        
             "service": {          
-                "name": "<rewrite-service-name>",          
+                "name": "<rewrite-name>",     
                 "port": {            
                     "number": 80          
                     }        
