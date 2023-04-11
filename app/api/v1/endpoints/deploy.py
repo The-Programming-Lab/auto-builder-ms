@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import subprocess
 import os
-from app.core.config import IMAGE_PATH, CLUSTER_ZONE, PROJECT_ID
 import json
+
+
+from app.core.config import IMAGE_PATH, CLUSTER_ZONE, PROJECT_ID
+from app.utils.utility import encoded_string
 from app.core.security import verify_user
 from app.core.firebase_config import db
 from app.api.v1.models.deploy import Deploy
-from app.utils.utility import get_website_by_name
-import base32_crockford as b32c
+from app.api.v1.models.database import Website, User, DecodedToken
+
 
 router = APIRouter(prefix="/deploy", tags=["GCP Deployment"])
 
@@ -52,14 +55,97 @@ def apply_ingress_file(file_name, changes):
         print(e)
         return 'error'
 
-def encode_string(string : str):
-    return b32c.encode(int.from_bytes(string.encode('utf-8'), 'big')).lower()
-
 def create_namespace(namespace_name):
     try:
         subprocess.check_output(f'kubectl get namespace {namespace_name}', shell=True) 
     except subprocess.CalledProcessError as e:
         subprocess.check_call(f'kubectl create namespace {namespace_name}', shell=True)
+
+def get_cluster(cluster_name):
+    try:
+        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
+    except subprocess.CalledProcessError as e:
+        print(e)
+        raise HTTPException(status_code=404, detail="Cluster not found")
+
+def get_most_recent_image(website: Website) -> str:
+    image_name = f"{encoded_string(website.owner_id)}-{website.name}"
+    try: 
+        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/{PROJECT_ID}/hello-repo/{image_name} --format=json --sort-by=timestamp", shell=True)
+        output = json.loads(output)
+        full_image_name = IMAGE_PATH + image_name + '@' + output[-1]['digest']
+    except subprocess.CalledProcessError as e:
+        print(e)
+        raise HTTPException(status_code=404, detail="Image not found")
+    return full_image_name
+
+
+
+@router.post("/")
+async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
+    website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
+    user: User = User.get(decoded_token.user_id)
+
+    get_cluster(input.cluster_name)
+    image_name = get_most_recent_image(website)
+
+    env_string = ''
+    for key, value in website.env.items():
+        # NOTE: The space before the key is important
+        env_string += f'          - name: {key}\n            value: {value}\n'
+
+    namespace = encoded_string(website.owner_id)
+    changes = {
+        '<deployment-name>': website.name,
+        '<image-name>': image_name,
+        '<port-number>': website.port_number,
+        # to add env variables
+        '<environment-variables>': env_string,
+        "<namespace-name>": namespace,
+        "<username-label>": user.username,
+        "<website-label>": website.name,
+    }
+
+    create_namespace(namespace)
+    apply_yaml_file('deploy', changes)
+
+
+    changes = {
+        '<service-name>': website.name,
+        '<port-number>': website.port_number,
+        '<deployment-name>': website.name,
+        '<service-type>': input.main_service_type,
+        '<annotations>': '',
+        "<additional-options>": '',
+        "<namespace-name>": namespace,
+        "<username-label>": user.username,
+        "<website-label>": website.name,
+    }
+
+    apply_yaml_file('service', changes)
+
+
+    encoded_id = encoded_string(website.owner_id)
+    rewrite_name = f"rewrite-{encoded_id}"
+    changes = {
+        '<config-path>' : f"/user/{user.username}/{website.name}",
+        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
+
+        '<configmap-name>': encoded_id,
+        '<rewrite-service-name>': rewrite_name,
+        '<rewrite-deploy-name>': rewrite_name,
+        '<service-type>': input.rewrite_service_type,
+        "<username-label>": user.username,
+        "<namespace-name>": "default"
+    }
+
+    apply_yaml_file('rewrite', changes, enable_delete=False)
+    # restart rewrite deployment to apply changes
+    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
+
+     
+    return "ok"
+
 
 
 """
@@ -69,31 +155,19 @@ def create_namespace(namespace_name):
 }
 """
 @router.post("/container")
-async def deployment(input: Deploy, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(input.website_name, decoded_token)
-    user_ref = db.collection('users').document(decoded_token['uid'])
-    username = user_ref.get().to_dict().get('username')
-    try:
-        
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {input.cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-        # get most recent image  
-        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/{PROJECT_ID}/hello-repo/{website.encoded_id} --format=json --sort-by=timestamp", shell=True)
-        output = json.loads(output)
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
-    image_name = IMAGE_PATH + website.encoded_id + '@' + output[-1]['digest']
+async def deployment(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
+    website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
+    user: User = User.get(decoded_token.user_id)
 
-    # set env variables for changes in yaml file
-    env = website.env
+    get_cluster(input.cluster_name)
+    image_name = get_most_recent_image(website)
+
     env_string = ''
-    for key, value in env.items():
+    for key, value in website.env.items():
         # NOTE: The space before the key is important
         env_string += f'          - name: {key}\n            value: {value}\n'
 
-    # make changes to yaml file
-    namespace = encode_string(decoded_token['uid'])
+    namespace = encoded_string(website.owner_id)
     changes = {
         '<deployment-name>': website.name,
         '<image-name>': image_name,
@@ -101,82 +175,78 @@ async def deployment(input: Deploy, decoded_token: dict = Depends(verify_user)):
         # to add env variables
         '<environment-variables>': env_string,
         "<namespace-name>": namespace,
-        "<username-label>": username,
+        "<username-label>": user.username,
         "<website-label>": website.name,
     }
 
     create_namespace(namespace)
-    # apply yaml deploy
     apply_yaml_file('deploy', changes)
 
     return "ok"
 
 # main-client-service 3000 main-client LoadBalancer main2
 @router.post("/service")
-async def service(service_type: str, cluster_name: str, website_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
-    user_ref = db.collection('users').document(decoded_token['uid'])
-    username = user_ref.get().to_dict().get('username')
-    try:
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
-    
-    namespace = encode_string(decoded_token['uid'])
+async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
+    website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
+    user: User = User.get(decoded_token.user_id)
+
+    get_cluster(input.cluster_name)
+
+    env_string = ''
+    for key, value in website.env.items():
+        # NOTE: The space before the key is important
+        env_string += f'          - name: {key}\n            value: {value}\n'
+
+    namespace = encoded_string(website.owner_id)
     changes = {
         '<service-name>': website.name,
         '<port-number>': website.port_number,
         '<deployment-name>': website.name,
-        '<service-type>': service_type,
+        '<service-type>': input.main_service_type,
         '<annotations>': '',
         "<additional-options>": '',
         "<namespace-name>": namespace,
-        "<username-label>": username,
+        "<username-label>": user.username,
         "<website-label>": website.name,
     }
 
-    create_namespace(encode_string(decoded_token['uid']))
+    create_namespace(namespace)
     apply_yaml_file('service', changes)
 
     return "ok"
 
 @router.post("/rewrite")
-async def rewrite(service_type: str, cluster_name: str, website_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
-    user_ref = db.collection('users').document(decoded_token['uid'])
-    user = user_ref.get().to_dict()
-    try:
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
+async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
+    website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
+    user: User = User.get(decoded_token.user_id)
+
+    get_cluster(input.cluster_name)
     
+
+    # !!! add soon
     path = {}
     for key, id in user.get('websites').items():
         path[f"/user/{user.get('username')}/{key}"] = f"{key}.{user.get('username').lower()}.svc.cluster.local"
 
 
-    rewrite_name = f"rewrite-{encode_string(decoded_token['uid']).lower()}"
-    user_namespace = encode_string(decoded_token['uid'])
+    namespace = encoded_string(website.owner_id)
+    encoded_id = encoded_string(website.owner_id)
+    rewrite_name = f"rewrite-{encoded_id}"
     changes = {
-        '<config-path>' : f"/user/{user.get('username')}/{website.name}",
-        '<service-name>': f"{website.name}.{user_namespace}.svc.cluster.local",
+        '<config-path>' : f"/user/{user.username}/{website.name}",
+        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
 
-        '<configmap-name>': f"{user.get('username').lower()}",
+        '<configmap-name>': encoded_id,
         '<rewrite-service-name>': rewrite_name,
         '<rewrite-deploy-name>': rewrite_name,
-        '<service-type>': service_type,
-        "<username-label>": user.get('username'),
+        '<service-type>': input.rewrite_service_type,
+        "<username-label>": user.username,
         "<namespace-name>": "default"
     }
 
     apply_yaml_file('rewrite', changes, enable_delete=False)
     # restart rewrite deployment to apply changes
-    subprocess.check_call(f"kubectl rollout restart deployment {user.get('username').lower()}-rewrite", shell=True) 
-
+    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
     return 'ok'
 
 

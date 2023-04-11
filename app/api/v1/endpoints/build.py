@@ -1,18 +1,22 @@
 from fastapi import APIRouter, Depends
-from app.core.config import PROJECT_ID, GITHUB_TOKEN, REPO_BUILDER_PATH, REPO_WORKFLOW_ID
 import requests
+
+from app.utils.utility import encoded_string
+from app.core.config import PROJECT_ID, GITHUB_TOKEN, REPO_BUILDER_PATH, REPO_WORKFLOW_ID
 from app.core.security import verify_user
 from app.core.firebase_config import db
-from app.utils.utility import get_website_by_name
-import base32_crockford as b32c
+from app.api.v1.models.database import Website, DecodedToken, User
+
+
+
 
 
 router = APIRouter(prefix="/build", tags=["GitHub Workflow"])
 
 
 @router.post("/")
-async def start_build(website_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
+async def start_build(website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+    website: Website = Website.get_from_user(website_name, decoded_token.user_id)
 
     # Define the API endpoint and request parameters
     API_ENDPOINT = f"https://api.github.com/repos/{REPO_BUILDER_PATH}/actions/workflows/{REPO_WORKFLOW_ID}/dispatches"
@@ -24,16 +28,12 @@ async def start_build(website_name: str, decoded_token: dict = Depends(verify_us
         "Content-Type": "application/json"
     }
 
-    # !!! 
-    # encoded_user_id = b32c.encode(int.from_bytes(website.website_id.encode('utf-8'), 'big')).lower()
-    # website.encoded_id = encoded_user_id
-    # website.save()
-
+    encoded_id = encoded_string(website.owner_id)
     # Set up the request data
     data = {
         "ref": "main",
         "inputs": {
-            "IMAGE_NAME": website.encoded_id,
+            "IMAGE_NAME": f"{encoded_id}-{website_name}",
             "PROJECT_ID": PROJECT_ID,
             "BUILD_REPO_NAME": website.repo_name
         }
@@ -42,13 +42,14 @@ async def start_build(website_name: str, decoded_token: dict = Depends(verify_us
     # Send the request to trigger the workflow
     response = requests.post(API_ENDPOINT, headers=headers, json=data)
     run_id = response.headers['X-GitHub-Request-Id']
-    # print(response.workflow_id)
 
     # Check the response status code
     if response.status_code == 204:
         return {"message": "Workflow dispatched successfully.", "run_id": run_id }
     else:
         return {"message": f"Failed to dispatch workflow. Response code: {response.status_code}"}
+
+
 
 
 @router.get("/done")
