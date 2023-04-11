@@ -205,66 +205,68 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
 
 
 @router.post("/ingress/path")
-async def ingress_path_add(website_name: str, cluster_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
-    user_ref = db.collection('users').document(decoded_token['uid'])
+async def ingress_path_add(cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+    # website: Website = Website.get_from_user(website_name, decoded_token.user_id)
+    user_ref = db.collection('users').document(decoded_token.user_id)
     username = user_ref.get().to_dict().get('username')
-    try:
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
     
+    get_cluster(cluster_name)
+    
+    encoded_id = encoded_string(decoded_token.user_id)
+    rewrite_name = f"rewrite-{encoded_id}"
     changes = {
         "<website-path>": f"/user/{username}",
-        "<rewrite-name>": f"{username.lower()}-rewrite",
+        "<rewrite-name>": rewrite_name,
     }
     apply_ingress_file('ingress-add', changes)
 
     return 'ok'
 
 @router.delete("/ingress/path")
-async def ingress_path_remove(website_name: str, cluster_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
+async def ingress_path_remove(cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+    username = User.get(decoded_token.user_id).username
 
-    try:
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
+    get_cluster(cluster_name)
     
-    # !!! get index of path to remove
-    # !!! kubectl get ingress main -o=jsonpath='{.spec.rules[0].http.paths[*].path}' | tr -s ' ' '\n' | nl | grep '/api2' | awk '{print $1 - 1}
+    path = f"/user/{username}"
+    try:
+        cmd = f"kubectl get ingress main -o=jsonpath='{{.spec.rules[0].http.paths[*].path}}'"
+        result = subprocess.run(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        if result.returncode != 0:
+            raise Exception(result.stderr)
+
+        paths = result.stdout.replace("'", "").split()
+        try:
+            path_index = paths.index(path)
+        except ValueError:
+            raise Exception('No path for User')
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=400, detail=str(e))
+    
     changes = {
-        "<path-index>": "1"
+        "<path-index>": str(path_index)
     }
+
     apply_ingress_file('ingress-remove', changes)
 
 
     return 'ok'
 
 @router.put("/ingress/path")
-async def ingress_path_update(website_name: str, cluster_name: str, decoded_token: dict = Depends(verify_user)):
-    website = get_website_by_name(website_name, decoded_token)
-    user_ref = db.collection('users').document(decoded_token['uid'])
-    username = user_ref.get().to_dict().get('username')
-
-    try:
-        # get cluster credentials
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        return 'error'
+async def ingress_path_update(website_name: str, cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+    get_cluster(cluster_name)
     
     # !!! check if path exists
     # !!! if it does change it 
+    encoded_id = encoded_string(decoded_token.user_id)
+    rewrite_name = f"rewrite-{encoded_id}"
     changes = {
-        "<website-path>": f"/user/{username}/{website.name}",
-        "<rewrite-service-name>": f"{website.name}-rewrite",
+        "<path-index>": 1,
+        "<rewrite-name>": rewrite_name,
     }
-    apply_ingress_file('ingress-add', changes, '.json')
+    apply_ingress_file('ingress-replace', changes, '.json')
 
     return 'ok'
 
