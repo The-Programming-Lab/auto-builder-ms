@@ -14,34 +14,38 @@ from app.api.v1.models.database import Website, User, DecodedToken
 
 router = APIRouter(prefix="/deploy", tags=["GCP Deployment"])
 
-# !!! files should be unique to the run as if two people are deploying at the same time, the files will be overwritten
-def update_yaml_file(file_name, replacement_dict, file_type):
+def get_and_change_file(file_name, replacement_dict, file_type) -> str:
     original_file_name = './app/utils/' + file_name + file_type
     with open(original_file_name, 'r') as file:
-        yaml_data = file.read()
+        file_data = file.read()
 
     for key, value in replacement_dict.items():
-        yaml_data = yaml_data.replace(key, value)
+        file_data = file_data.replace(key, value)
 
-    new_file_name = './app/utils/' + file_name + '_updated' + file_type
-    with open(new_file_name, 'w') as file:
-        file.write(yaml_data)
+    return file_data
 
-    return new_file_name
-
-def apply_yaml_file(file_name, changes, enable_delete=True):
-    file = update_yaml_file(file_name, changes, ".yaml")
+def apply_yaml_file(file_name, changes) -> None:
+    updated_yaml_data = get_and_change_file(file_name, changes, ".yaml")
     # Apply the updated YAML using kubectl
-    try :
-        subprocess.check_call(f'kubectl apply -f {file}', shell=True)
+    try:
+        kubectl_apply = subprocess.Popen(
+            ['kubectl', 'apply', '-f', '-'],
+            stdin=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        stdout, stderr = kubectl_apply.communicate(updated_yaml_data)
+
+        if kubectl_apply.returncode != 0:
+            raise subprocess.CalledProcessError(
+                kubectl_apply.returncode, 'kubectl apply', output=stdout, stderr=stderr
+            )
+
     except subprocess.CalledProcessError as e:
         print(e)
-        return 'error'
+        print(updated_yaml_data)
+        raise HTTPException(status_code=500, detail=f"Failed on creating the {file_name}")
     
-    if enable_delete and os.path.exists(file):
-        os.remove(file)
-    
-def apply_ingress_file(file_name, changes):
+def apply_ingress_file(file_name, changes) -> None:
     original_file_name = './app/utils/' + file_name + ".json"
     with open(original_file_name, 'r') as file:
         json_data = file.read()
@@ -53,7 +57,7 @@ def apply_ingress_file(file_name, changes):
         subprocess.check_call(f'kubectl patch ingress main --type json -p="{json_data}"', shell=True) 
     except subprocess.CalledProcessError as e:
         print(e)
-        return 'error'
+        raise HTTPException(status_code=500, detail="Ingress operation failed")
 
 def create_namespace(namespace_name):
     try:
@@ -61,7 +65,7 @@ def create_namespace(namespace_name):
     except subprocess.CalledProcessError as e:
         subprocess.check_call(f'kubectl create namespace {namespace_name}', shell=True)
 
-def get_cluster(cluster_name):
+def get_cluster(cluster_name) -> None:
     try:
         subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
     except subprocess.CalledProcessError as e:
@@ -79,6 +83,7 @@ def get_most_recent_image(website: Website) -> str:
         raise HTTPException(status_code=404, detail="Image not found")
     return full_image_name
 
+# def
 
 
 @router.post("/")
@@ -139,7 +144,7 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
         "<namespace-name>": "default"
     }
 
-    apply_yaml_file('rewrite', changes, enable_delete=False)
+    apply_yaml_file('rewrite', changes)
     # restart rewrite deployment to apply changes
     subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
 
@@ -244,7 +249,7 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
         "<namespace-name>": "default"
     }
 
-    apply_yaml_file('rewrite', changes, enable_delete=False)
+    apply_yaml_file('rewrite', changes)
     # restart rewrite deployment to apply changes
     subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
     return 'ok'
