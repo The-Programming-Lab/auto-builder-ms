@@ -83,8 +83,63 @@ def get_most_recent_image(website: Website) -> str:
         raise HTTPException(status_code=404, detail="Image not found")
     return full_image_name
 
-# def
+def apply_deploy_yaml(website: Website, image_name: str, namespace: str, username: str) -> None:
+    env_string = ''
+    for key, value in website.env.items():
+        # NOTE: The space before the key is important
+        env_string += f'          - name: {key}\n            value: {value}\n'
 
+    changes = {
+        '<deployment-name>': website.name,
+        '<image-name>': image_name,
+        '<port-number>': website.port_number,
+        # to add env variables
+        '<environment-variables>': env_string,
+        "<namespace-name>": namespace,
+        "<username-label>": username,
+        "<website-label>": website.name,
+    }
+
+    apply_yaml_file('deploy', changes)
+
+def apply_service_yaml(website: Website, namespace: str, username: str, service_type: str) -> None:
+    changes = {
+        '<service-name>': website.name,
+        '<port-number>': website.port_number,
+        '<deployment-name>': website.name,
+        '<service-type>': service_type,
+        '<annotations>': '',
+        "<additional-options>": '',
+        "<namespace-name>": namespace,
+        "<username-label>": username,
+        "<website-label>": website.name,
+    }
+
+    apply_yaml_file('service', changes)
+
+def apply_rewrite_yaml(website: Website, namespace: str, username: str, service_type: str) -> None:
+    encoded_id = encoded_string(website.owner_id)
+    rewrite_name = f"rewrite-{encoded_id}"
+    changes = {
+        '<config-path>' : f"/user/{username}/{website.name}",
+        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
+
+        '<configmap-name>': encoded_id,
+        '<rewrite-service-name>': rewrite_name,
+        '<rewrite-deploy-name>': rewrite_name,
+        '<service-type>': service_type,
+        "<username-label>": username,
+        "<namespace-name>": "default"
+    }
+
+    # !!! add soon
+    # path = {}
+    # for key, id in user.get('websites').items():
+    #     path[f"/user/{user.get('username')}/{key}"] = f"{key}.{user.get('username').lower()}.svc.cluster.local"
+
+    apply_yaml_file('rewrite', changes)
+    # restart rewrite deployment to apply changes
+    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
 
 @router.post("/")
 async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
@@ -92,104 +147,34 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
     user: User = User.get(decoded_token.user_id)
 
     get_cluster(input.cluster_name)
-    image_name = get_most_recent_image(website)
-
-    env_string = ''
-    for key, value in website.env.items():
-        # NOTE: The space before the key is important
-        env_string += f'          - name: {key}\n            value: {value}\n'
-
+    
     namespace = encoded_string(website.owner_id)
-    changes = {
-        '<deployment-name>': website.name,
-        '<image-name>': image_name,
-        '<port-number>': website.port_number,
-        # to add env variables
-        '<environment-variables>': env_string,
-        "<namespace-name>": namespace,
-        "<username-label>": user.username,
-        "<website-label>": website.name,
-    }
-
     create_namespace(namespace)
-    apply_yaml_file('deploy', changes)
 
+    image_name = get_most_recent_image(website)
+    apply_deploy_yaml(website, image_name, namespace, user.username)
 
-    changes = {
-        '<service-name>': website.name,
-        '<port-number>': website.port_number,
-        '<deployment-name>': website.name,
-        '<service-type>': input.main_service_type,
-        '<annotations>': '',
-        "<additional-options>": '',
-        "<namespace-name>": namespace,
-        "<username-label>": user.username,
-        "<website-label>": website.name,
-    }
+    apply_service_yaml(website, namespace, user.username, input.main_service_type)
 
-    apply_yaml_file('service', changes)
-
-
-    encoded_id = encoded_string(website.owner_id)
-    rewrite_name = f"rewrite-{encoded_id}"
-    changes = {
-        '<config-path>' : f"/user/{user.username}/{website.name}",
-        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
-
-        '<configmap-name>': encoded_id,
-        '<rewrite-service-name>': rewrite_name,
-        '<rewrite-deploy-name>': rewrite_name,
-        '<service-type>': input.rewrite_service_type,
-        "<username-label>": user.username,
-        "<namespace-name>": "default"
-    }
-
-    apply_yaml_file('rewrite', changes)
-    # restart rewrite deployment to apply changes
-    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
-
+    apply_rewrite_yaml(website, namespace, user.username, input.rewrite_service_type)
      
     return "ok"
 
-
-
-"""
-{
-    "website_name": "example",
-    "cluster_name": "main"
-}
-"""
 @router.post("/container")
 async def deployment(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
 
     get_cluster(input.cluster_name)
-    image_name = get_most_recent_image(website)
-
-    env_string = ''
-    for key, value in website.env.items():
-        # NOTE: The space before the key is important
-        env_string += f'          - name: {key}\n            value: {value}\n'
 
     namespace = encoded_string(website.owner_id)
-    changes = {
-        '<deployment-name>': website.name,
-        '<image-name>': image_name,
-        '<port-number>': website.port_number,
-        # to add env variables
-        '<environment-variables>': env_string,
-        "<namespace-name>": namespace,
-        "<username-label>": user.username,
-        "<website-label>": website.name,
-    }
-
     create_namespace(namespace)
-    apply_yaml_file('deploy', changes)
+
+    image_name = get_most_recent_image(website)
+    apply_deploy_yaml(website, image_name, namespace, user.username)
 
     return "ok"
 
-# main-client-service 3000 main-client LoadBalancer main2
 @router.post("/service")
 async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
@@ -197,26 +182,10 @@ async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
 
     get_cluster(input.cluster_name)
 
-    env_string = ''
-    for key, value in website.env.items():
-        # NOTE: The space before the key is important
-        env_string += f'          - name: {key}\n            value: {value}\n'
-
     namespace = encoded_string(website.owner_id)
-    changes = {
-        '<service-name>': website.name,
-        '<port-number>': website.port_number,
-        '<deployment-name>': website.name,
-        '<service-type>': input.main_service_type,
-        '<annotations>': '',
-        "<additional-options>": '',
-        "<namespace-name>": namespace,
-        "<username-label>": user.username,
-        "<website-label>": website.name,
-    }
-
     create_namespace(namespace)
-    apply_yaml_file('service', changes)
+
+    apply_service_yaml(website, namespace, user.username, input.main_service_type)
 
     return "ok"
 
@@ -226,32 +195,12 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     user: User = User.get(decoded_token.user_id)
 
     get_cluster(input.cluster_name)
-    
-
-    # !!! add soon
-    path = {}
-    for key, id in user.get('websites').items():
-        path[f"/user/{user.get('username')}/{key}"] = f"{key}.{user.get('username').lower()}.svc.cluster.local"
-
 
     namespace = encoded_string(website.owner_id)
-    encoded_id = encoded_string(website.owner_id)
-    rewrite_name = f"rewrite-{encoded_id}"
-    changes = {
-        '<config-path>' : f"/user/{user.username}/{website.name}",
-        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
+    create_namespace(namespace)
 
-        '<configmap-name>': encoded_id,
-        '<rewrite-service-name>': rewrite_name,
-        '<rewrite-deploy-name>': rewrite_name,
-        '<service-type>': input.rewrite_service_type,
-        "<username-label>": user.username,
-        "<namespace-name>": "default"
-    }
+    apply_rewrite_yaml(website, namespace, user.username, input.rewrite_service_type)
 
-    apply_yaml_file('rewrite', changes)
-    # restart rewrite deployment to apply changes
-    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
     return 'ok'
 
 
