@@ -1,7 +1,7 @@
 [  
     {    
         "op": "replace",    
-        "path": "/spec/rules/0/http/paths/3/backend/service/name",
-        "value": "api2-service"  
+        "path": "/spec/rules/0/http/paths/<path-index>/backend/service/name",
+        "value": "<rewrite-name>"
     }
 ]
