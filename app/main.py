@@ -7,7 +7,10 @@ from app.core.config import GCP_AUTH_FILE
 app = FastAPI()
 
 # auth gcloud and get cluster
-# subprocess.check_call(f'gcloud auth activate-service-account --key-file={GCP_AUTH_FILE}', shell=True)
+try:
+    subprocess.check_call(f'gcloud auth activate-service-account --key-file={GCP_AUTH_FILE}', shell=True)
+except Exception as e:
+    print(e)
 
 # !!! This is the way to disable docs and openapi.json in production !!!
 # app = FastAPI(docs_url=None if env == "production" else "/docs",
