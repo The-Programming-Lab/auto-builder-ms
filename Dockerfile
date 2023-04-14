@@ -13,6 +13,8 @@ RUN apt-get update && \
 RUN apt-get install kubectl
 RUN apt-get install google-cloud-sdk-gke-gcloud-auth-plugin
 
+ENV APP_ENV=production
+
 # Set the working directory to /app
 WORKDIR /app
 

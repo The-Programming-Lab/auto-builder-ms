@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.api.v1.router import router
 import subprocess
-from app.core.config import GCP_AUTH_FILE, HEALTH_CHECK_ENDPOINT
+from app.core.config import GCP_AUTH_FILE
 
 
 app = FastAPI()
@@ -17,7 +17,3 @@ subprocess.check_call(f'gcloud auth activate-service-account --key-file={GCP_AUT
 
 # add router from api/endpoints/example.py
 app.include_router(router)
-
-@app.get(HEALTH_CHECK_ENDPOINT)
-async def test():
-    return "Ok"

@@ -53,6 +53,13 @@ jobs:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_ZONE }}
 
+    - name: Set up environment variables
+      run: |
+        echo "${{ secrets.ENV_FILE }}" > .env
+        echo "${{ secrets.GCLOUD_KEY_JSON }}" > gcloud-key.json
+        echo "${{ secrets.FIREBASE_KEY_JSON }}" > firebase-key.json
+
+
     # Build the Docker image
     - name: Build
       run: |
