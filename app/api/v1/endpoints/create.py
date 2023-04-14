@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
+
 from app.core.firebase_config import db
 from app.core.security import verify_user, verify_admin
+from app.api.v1.models.database import Website, User, DecodedToken
 
 '''
 swap to firestore db
@@ -50,7 +52,7 @@ service cloud.firestore {
 router = APIRouter(prefix="/website", tags=["Create and Edit Website"])
 
 @router.post("/")
-async def create_website(decoded_token: dict = Depends(verify_user)):
+async def create_website(decoded_token: DecodedToken = Depends(verify_user)):
     """
     Create a new website
 
@@ -66,21 +68,21 @@ async def create_website(decoded_token: dict = Depends(verify_user)):
     return {"message": "Hello World"}
 
 @router.get("/")
-async def get_all_websites(decoded_token: dict = Depends(verify_admin)):
+async def get_all_websites(decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get all websites
     """
     return {"message": "Hello World"}
 
 @router.get("/{website_id}")
-async def get_website(website_id: str):
+async def get_website(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get a website by id
     """
     return {"message": "Hello World"}
 
 @router.put("/{website_id}")
-async def update_website(website_id: str):
+async def update_website(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Update a website by id
 
@@ -95,14 +97,14 @@ async def update_website(website_id: str):
     return {"message": "Hello World"}
 
 @router.delete("/{website_id}")
-async def delete_website(website_id: str):
+async def delete_website(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Delete a website by id
     """
     return {"message": "Hello World"}
 
 @router.post("/{website_id}/env")
-async def create_env(website_id: str):
+async def create_env(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Create a new environment variable
 
@@ -117,7 +119,7 @@ async def create_env(website_id: str):
 
 
 @router.put("/{website_id}/env/{env_key}")
-async def update_env(website_id: str, env_key: str):
+async def update_env(website_id: str, env_key: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Update environment variable
 
@@ -130,14 +132,14 @@ async def update_env(website_id: str, env_key: str):
     return {"message": "Hello World"}
 
 @router.delete("/{website_id}/env/{env_key}")
-async def delete_env(website_id: str, env_key: str):
+async def delete_env(website_id: str, env_key: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Delete environment variable
     """
     return {"message": "Hello World"}
 
 @router.get("/{website_id}/env")
-async def get_all_env(website_id: str):
+async def get_all_env(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get all environment variables
 

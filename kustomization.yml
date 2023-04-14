@@ -12,22 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
-metadata:
-  name: <service-name>
-  namespace: <namespace-name>
-  labels:
-    username: <username-label>
-    website: <website-label>
-  annotations:
-    <annotations>
-spec:
-  type: <service-type>
-  ports:
-    - name: http
-      port: 80
-      targetPort: <port-number>
-  selector:
-    app: <deployment-name>
-  <additional-options>
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- deployment.yml
+- backendconfig.yml
+- service.yml

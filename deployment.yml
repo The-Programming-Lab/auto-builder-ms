@@ -12,22 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: <service-name>
-  namespace: <namespace-name>
-  labels:
-    username: <username-label>
-    website: <website-label>
-  annotations:
-    <annotations>
+  name: auto-builder-ms
 spec:
-  type: <service-type>
-  ports:
-    - name: http
-      port: 80
-      targetPort: <port-number>
+  replicas: 1
   selector:
-    app: <deployment-name>
-  <additional-options>
+    matchLabels:
+      app: auto-builder-ms
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: auto-builder-ms
+    spec:
+      containers:
+      - name: auto-builder-ms
+        image: image-url
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 100m
+
+
+

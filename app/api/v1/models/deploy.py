@@ -7,3 +7,5 @@ class Deploy(BaseModel):
     cluster_name: str
     # image_name: str
     website_name: str
+    rewrite_service_type: str = "ClusterIP"
+    main_service_type: str = "ClusterIP"

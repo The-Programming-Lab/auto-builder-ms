@@ -2,6 +2,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: <configmap-name>
+  namespace: <namespace-name>
+  labels:
+    username: <username-label>
 data:
   nginx.conf: |
     events {}
@@ -24,16 +27,19 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: <deploy-name>-rewrite
+  name: <rewrite-deploy-name>
+  namespace: <namespace-name>
+  labels:
+    username: <username-label>
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: <deploy-name>-rewrite
+      app: <rewrite-deploy-name>
   template:
     metadata:
       labels:
-        app: <deploy-name>-rewrite
+        app: <rewrite-deploy-name>
     spec:
       containers:
       - name: nginx
@@ -52,10 +58,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: <deploy-name>-rewrite-service
+  name: <rewrite-service-name>
+  namespace: <namespace-name>
+  labels:
+    username: <username-label>
 spec:
   selector:
-    app: <deploy-name>-rewrite
+    app: <rewrite-deploy-name>
   ports:
     - protocol: TCP
       port: 80

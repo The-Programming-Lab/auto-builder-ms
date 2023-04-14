@@ -1,7 +1,7 @@
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
-  name: <backendconfig-name>
+  name: auto-builder-ms
 spec:
   timeoutSec: 30
   connectionDraining:
@@ -12,4 +12,4 @@ spec:
     unhealthyThreshold: 3
     healthyThreshold: 2
     type: HTTP
-    requestPath: <health-check-path>
+    requestPath: /health-check
