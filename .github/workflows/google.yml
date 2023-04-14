@@ -56,8 +56,8 @@ jobs:
     - name: Set up environment variables
       run: |
         echo "${{ secrets.ENV_FILE }}" > .env
-        echo "${{ secrets.GCLOUD_KEY_JSON }}" > gcloud-key.json
-        echo "${{ secrets.FIREBASE_KEY_JSON }}" > firebase-key.json
+        echo "${{ secrets.GCLOUD_KEY_JSON_BASE64 }}" | base64 --decode > gcloud-key.json
+        echo "${{ secrets.FIREBASE_KEY_JSON_BASE64 }}" | base64 --decode > gcloud-key.json
 
 
     # Build the Docker image
