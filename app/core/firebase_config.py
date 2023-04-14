@@ -4,6 +4,7 @@ from app.core.config import FIREBASE_AUTH_FILE
 
 
 # initialize firebase auth and db
-cred = credentials.Certificate(FIREBASE_AUTH_FILE)
-initialize_app(cred)
-db = firestore.client()
+# cred = credentials.Certificate(FIREBASE_AUTH_FILE)
+# initialize_app(cred)
+# db = firestore.client()
+db = None
