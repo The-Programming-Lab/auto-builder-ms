@@ -53,7 +53,7 @@ async def start_build(website_name: str, decoded_token: DecodedToken = Depends(v
 
 
 @router.get("/done")
-async def check_build_done(workflow_id: str):
+async def check_build_done(workflow_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     # Set the GitHub repository and build ID
     repo = 'my-org/my-repo'
     build_id = '123456'
