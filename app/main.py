@@ -20,3 +20,8 @@ except Exception as e:
 
 # add router from api/endpoints/example.py
 app.include_router(router)
+
+
+@app.get("/")
+async def health_check():
+    return "ok"
