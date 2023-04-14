@@ -14,8 +14,8 @@ data:
           return 200;
         }
         
-        location ^~ /auto-ms {
-            rewrite ^/auto-ms(/?)(.*)$ /$2 break;
+        location ^~ /auto-builder {
+            rewrite ^/auto-builder(/?)(.*)$ /$2 break;
             proxy_pass http://auto-builder-ms;
         }
       }
