@@ -63,7 +63,11 @@ def create_namespace(namespace_name):
     try:
         subprocess.check_output(f'kubectl get namespace {namespace_name}', shell=True) 
     except subprocess.CalledProcessError as e:
-        subprocess.check_call(f'kubectl create namespace {namespace_name}', shell=True)
+        try :
+            subprocess.check_call(f'kubectl create namespace {namespace_name}', shell=True)
+        except subprocess.CalledProcessError as e:
+            print(e)
+            raise HTTPException(status_code=500, detail="Failed to create namespace")
 
 def get_cluster(cluster_name) -> None:
     try:
