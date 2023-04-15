@@ -4,7 +4,7 @@ import subprocess
 from app.core.config import GCP_AUTH_FILE, BASE_PATH
 
 
-app = FastAPI(docs_url=BASE_PATH + "/docs")
+app = FastAPI(docs_url=BASE_PATH + "/docs", openapi_url=BASE_PATH + "/openapi.json")
 
 # auth gcloud and get cluster
 try:
