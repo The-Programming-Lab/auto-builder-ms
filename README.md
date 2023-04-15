@@ -1,5 +1,7 @@
 # Auto Builder Microservice
 
+![Code Coverage](./coverage.svg)
+
 ## useful cmds
 kubectl rollout restart deployment nginx-rewrite
 
