@@ -3,3 +3,6 @@ uvicorn
 python-dotenv
 requests
 firebase-admin
+pytest
+pytest-cov
+httpx
