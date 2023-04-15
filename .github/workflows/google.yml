@@ -74,20 +74,7 @@ jobs:
         docker run --rm \
           -e PYTHONPATH="/app" \
           "$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA" \
-         pytest -s -p no:warnings --cov=app --cov-fail-under=0 --cov-report=xml
-
-    - name: Generate coverage badge
-      run: |
-        pip install coverage-badge
-        coverage-badge -i coverage.xml -o coverage.svg -f
-
-    - name: Commit coverage badge
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "github-actions@example.com"
-        git add coverage.svg
-        git commit -m "Update coverage badge" || true
-        git push
+         pytest -s -p no:warnings --cov=app --cov-fail-under=0
 
     # Push the Docker image to Google Artifact Registry
     - name: Publish
