@@ -110,18 +110,19 @@ class User(BaseModel):
             return User.get(user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+# !!! verify which one are not actually optional
 class DecodedToken(BaseModel):
-    name: str
-    picture: str
-    iss: str
-    aud: str
-    auth_time: int
+    name: Optional[str] = None
+    picture: Optional[str] = None
+    iss: Optional[str] = None
+    aud: Optional[str] = None
+    auth_time: Optional[int] = None
     user_id: str
-    sub: str
-    iat: int
-    exp: int
-    email: str
-    email_verified: bool
+    sub: Optional[str] = None
+    iat: Optional[int] = None
+    exp: Optional[int] = None
+    email: Optional[str] = None
+    email_verified: Optional[bool] = None
     firebase: dict
 
     @staticmethod
