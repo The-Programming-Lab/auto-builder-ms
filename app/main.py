@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from app.api.v1.router import router
 import subprocess
-from app.core.config import GCP_AUTH_FILE
+from app.core.config import GCP_AUTH_FILE, BASE_PATH
 
 
-app = FastAPI()
+app = FastAPI(docs_url=BASE_PATH + "/docs")
 
 # auth gcloud and get cluster
 try:
@@ -12,13 +12,6 @@ try:
 except Exception as e:
     print(e)
 
-# !!! This is the way to disable docs and openapi.json in production !!!
-# app = FastAPI(docs_url=None if env == "production" else "/docs",
-#               redoc_url=None,
-#               openapi_url=None if env == "production" else "/openapi.json")
-
-
-# add router from api/endpoints/example.py
 app.include_router(router)
 
 

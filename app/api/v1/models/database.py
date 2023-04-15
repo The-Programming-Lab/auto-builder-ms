@@ -1,11 +1,23 @@
 from pydantic import BaseModel
 from app.core.firebase_config import db
+from typing import Optional
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
+from google.cloud.firestore_v1 import DocumentReference
 from fastapi import HTTPException, status
+import uuid
 
+class NewWebsite(BaseModel):
+    name: str
+    description: str
+    repo_name: str
+    port_number: Optional[str] = None
+
+class NewVariable(BaseModel):
+    name: str
+    value: str
 
 class Website(BaseModel):
-    website_id: str
+    website_id: Optional[str]
     created_at: DatetimeWithNanoseconds
     description: str
     env: dict
@@ -13,12 +25,27 @@ class Website(BaseModel):
     owner_id: str
     port_number: str
     repo_name: str
-    updated_at: DatetimeWithNanoseconds
+    updated_at: Optional[DatetimeWithNanoseconds]
 
     def save(self):
         data = self.dict(exclude={'website_id'})
         website_ref = db.collection('websites').document(self.website_id)
         website_ref.set(data)
+
+    def to_dict(self):
+        return self.dict(exclude={'env'})
+    
+    def delete(self):
+        website_ref = db.collection('websites').document(self.website_id)
+        website_ref.delete()
+
+    @staticmethod
+    def create(website_data: dict) -> DocumentReference:
+        new_website_id = str(uuid.uuid4())
+        website_data["website_id"] = new_website_id
+        new_website = Website(**website_data)
+        new_website.save()
+        return db.collection('websites').document(new_website_id)
     
     @staticmethod
     def get_from_id(website_id: str):
@@ -74,6 +101,14 @@ class User(BaseModel):
             print(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return User(**user)
+    
+    @staticmethod
+    def get_from_username(username: str) -> 'User':
+        users_ref = db.collection('users')
+        users = users_ref.where('username', '==', username).stream()
+        for user in users:
+            return User.get(user.id)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 class DecodedToken(BaseModel):
     name: str
