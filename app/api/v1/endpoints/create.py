@@ -113,7 +113,7 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
     user.allowed_deployments -= 1
     user.save()
 
-    website = Website.create({
+    website: Website = Website.create({
         "name": new_website.name,
         "description": new_website.description,
         "repo_name": new_website.repo_name,
@@ -124,7 +124,7 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
         "owner_id": user.user_id
     })
 
-    user.websites[new_website.name] = website.id
+    user.websites[new_website.name] = website.website_id
     user.save()
     
     return {"website": website.to_dict()}

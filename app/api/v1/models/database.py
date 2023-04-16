@@ -40,12 +40,12 @@ class Website(BaseModel):
         website_ref.delete()
 
     @staticmethod
-    def create(website_data: dict) -> DocumentReference:
+    def create(website_data: dict) -> 'Website':
         new_website_id = str(uuid.uuid4())
         website_data["website_id"] = new_website_id
         new_website = Website(**website_data)
         new_website.save()
-        return db.collection('websites').document(new_website_id)
+        return new_website
     
     @staticmethod
     def get_from_id(website_id: str):
