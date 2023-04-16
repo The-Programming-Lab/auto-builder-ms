@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 import subprocess
-import os
 import json
-
 
 from app.core.config import IMAGE_PATH, CLUSTER_ZONE, PROJECT_ID
 from app.utils.utility import encoded_string
@@ -33,6 +31,7 @@ def apply_yaml_file(file_name, changes) -> None:
             stdin=subprocess.PIPE,
             universal_newlines=True,
         )
+        print(updated_yaml_data)
         stdout, stderr = kubectl_apply.communicate(updated_yaml_data)
 
         if kubectl_apply.returncode != 0:
@@ -121,13 +120,21 @@ def apply_service_yaml(website: Website, namespace: str, username: str, service_
 
     apply_yaml_file('service', changes)
 
-def apply_rewrite_yaml(website: Website, namespace: str, username: str, service_type: str) -> None:
-    encoded_id = encoded_string(website.owner_id)
+def apply_rewrite_yaml(user: User, namespace: str, username: str, service_type: str) -> None:
+    encoded_id = encoded_string(user.user_id)
     rewrite_name = f"rewrite-{encoded_id}"
-    changes = {
-        '<config-path>' : f"/user/{username}/{website.name}",
-        '<service-name>': f"{website.name}.{namespace}.svc.cluster.local",
 
+    paths = ''
+    for key, _ in user.websites.items():
+        paths += (
+            f"        location ^~ /user/{username}/{key}" + " {\n"
+            f"          rewrite ^/user/{username}/{key}(/?)(.*)$ /$2 break;\n"
+            f"          proxy_pass http://{key}.{namespace}.svc.cluster.local;\n"
+            "        }\n\n"
+        )
+
+    changes = {
+        '<rewrite-locations>' : paths,
         '<configmap-name>': encoded_id,
         '<rewrite-service-name>': rewrite_name,
         '<rewrite-deploy-name>': rewrite_name,
@@ -135,11 +142,6 @@ def apply_rewrite_yaml(website: Website, namespace: str, username: str, service_
         "<username-label>": username,
         "<namespace-name>": "default"
     }
-
-    # !!! add soon
-    # path = {}
-    # for key, id in user.get('websites').items():
-    #     path[f"/user/{user.get('username')}/{key}"] = f"{key}.{user.get('username').lower()}.svc.cluster.local"
 
     apply_yaml_file('rewrite', changes)
     # restart rewrite deployment to apply changes
@@ -160,7 +162,7 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
 
     apply_service_yaml(website, namespace, user.username, input.main_service_type)
 
-    apply_rewrite_yaml(website, namespace, user.username, input.rewrite_service_type)
+    apply_rewrite_yaml(user, namespace, user.username, input.rewrite_service_type)
      
     return "ok"
 
@@ -203,7 +205,7 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
 
-    apply_rewrite_yaml(website, namespace, user.username, input.rewrite_service_type)
+    apply_rewrite_yaml(user, namespace, user.username, input.rewrite_service_type)
 
     return 'ok'
 

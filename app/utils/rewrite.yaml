@@ -17,10 +17,7 @@ data:
           return 200;
         }
         
-        location ^~ <config-path> {
-            rewrite ^<config-path>(/?)(.*)$ /$2 break;
-            proxy_pass http://<service-name>;
-        }
+<rewrite-locations>
       }
     }
 ---
