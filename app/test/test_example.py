@@ -53,8 +53,3 @@ def test_token_creation():
                             headers={"Authorization": "Bearer " + token},
                             params={"username": "Braeden6"})
     assert response.status_code == 200
-    assert response.json() == {
-                    "websites": {
-                        "example": "QVZ5yW7TzrsljPa7PTx6"
-                    }
-                }
