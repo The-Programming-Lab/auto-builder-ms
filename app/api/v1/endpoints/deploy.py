@@ -10,7 +10,7 @@ from app.api.v1.models.deploy import Deploy
 from app.api.v1.models.database import Website, User, DecodedToken
 
 
-router = APIRouter(prefix="/deploy", tags=["GCP Deployment"])
+router = APIRouter(prefix="/deploy", tags=["GCP Actions Deployment/Service/Ingress/Rewrite"])
 
 def get_and_change_file(file_name, replacement_dict, file_type) -> str:
     original_file_name = './app/utils/' + file_name + file_type
@@ -31,7 +31,6 @@ def apply_yaml_file(file_name, changes) -> None:
             stdin=subprocess.PIPE,
             universal_newlines=True,
         )
-        print(updated_yaml_data)
         stdout, stderr = kubectl_apply.communicate(updated_yaml_data)
 
         if kubectl_apply.returncode != 0:
@@ -68,13 +67,6 @@ def create_namespace(namespace_name):
             print(e)
             raise HTTPException(status_code=500, detail="Failed to create namespace")
 
-def get_cluster(cluster_name) -> None:
-    try:
-        subprocess.check_call(f'gcloud container clusters get-credentials {cluster_name} --zone={CLUSTER_ZONE} --project={PROJECT_ID}', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        raise HTTPException(status_code=404, detail="Cluster not found")
-
 def get_most_recent_image(website: Website) -> str:
     image_name = f"{encoded_string(website.owner_id)}-{website.name}"
     try: 
@@ -105,12 +97,12 @@ def apply_deploy_yaml(website: Website, image_name: str, namespace: str, usernam
 
     apply_yaml_file('deploy', changes)
 
-def apply_service_yaml(website: Website, namespace: str, username: str, service_type: str) -> None:
+def apply_service_yaml(website: Website, namespace: str, username: str) -> None:
     changes = {
         '<service-name>': website.name,
         '<port-number>': website.port_number,
         '<deployment-name>': website.name,
-        '<service-type>': service_type,
+        '<service-type>': "ClusterIP",
         '<annotations>': '',
         "<additional-options>": '',
         "<namespace-name>": namespace,
@@ -120,7 +112,7 @@ def apply_service_yaml(website: Website, namespace: str, username: str, service_
 
     apply_yaml_file('service', changes)
 
-def apply_rewrite_yaml(user: User, namespace: str, username: str, service_type: str) -> None:
+def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
     encoded_id = encoded_string(user.user_id)
     rewrite_name = f"rewrite-{encoded_id}"
 
@@ -138,7 +130,7 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str, service_type: 
         '<configmap-name>': encoded_id,
         '<rewrite-service-name>': rewrite_name,
         '<rewrite-deploy-name>': rewrite_name,
-        '<service-type>': service_type,
+        '<service-type>': "ClusterIP",
         "<username-label>": username,
         "<namespace-name>": "default"
     }
@@ -151,8 +143,6 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str, service_type: 
 async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
-
-    get_cluster(input.cluster_name)
     
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
@@ -160,9 +150,9 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
     image_name = get_most_recent_image(website)
     apply_deploy_yaml(website, image_name, namespace, user.username)
 
-    apply_service_yaml(website, namespace, user.username, input.main_service_type)
+    apply_service_yaml(website, namespace, user.username)
 
-    apply_rewrite_yaml(user, namespace, user.username, input.rewrite_service_type)
+    apply_rewrite_yaml(user, namespace, user.username)
      
     return "ok"
 
@@ -170,8 +160,6 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
 async def deployment(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
-
-    get_cluster(input.cluster_name)
 
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
@@ -186,8 +174,6 @@ async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
 
-    get_cluster(input.cluster_name)
-
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
 
@@ -200,8 +186,6 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
 
-    get_cluster(input.cluster_name)
-
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
 
@@ -209,14 +193,11 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
 
     return 'ok'
 
-
 @router.post("/ingress/path")
-async def ingress_path_add(cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+async def ingress_path_add(decoded_token: DecodedToken = Depends(verify_user)):
     # website: Website = Website.get_from_user(website_name, decoded_token.user_id)
     user_ref = db.collection('users').document(decoded_token.user_id)
     username = user_ref.get().to_dict().get('username')
-    
-    get_cluster(cluster_name)
     
     encoded_id = encoded_string(decoded_token.user_id)
     rewrite_name = f"rewrite-{encoded_id}"
@@ -229,10 +210,8 @@ async def ingress_path_add(cluster_name: str, decoded_token: DecodedToken = Depe
     return 'ok'
 
 @router.delete("/ingress/path")
-async def ingress_path_remove(cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
+async def ingress_path_remove(decoded_token: DecodedToken = Depends(verify_user)):
     username = User.get(decoded_token.user_id).username
-
-    get_cluster(cluster_name)
     
     path = f"/user/{username}"
     try:
@@ -261,9 +240,7 @@ async def ingress_path_remove(cluster_name: str, decoded_token: DecodedToken = D
     return 'ok'
 
 @router.put("/ingress/path")
-async def ingress_path_update(website_name: str, cluster_name: str, decoded_token: DecodedToken = Depends(verify_user)):
-    get_cluster(cluster_name)
-    
+async def ingress_path_update(website_name: str, decoded_token: DecodedToken = Depends(verify_user)):   
     # !!! check if path exists
     # !!! if it does change it 
     encoded_id = encoded_string(decoded_token.user_id)

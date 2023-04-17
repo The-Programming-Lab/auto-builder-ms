@@ -52,7 +52,7 @@ service cloud.firestore {
 
 '''
 
-router = APIRouter(prefix="/website", tags=["Create and Edit Website"])
+router = APIRouter(prefix="/website", tags=["Database Action Create/Update/Delete"])
 
 @router.post("/")
 async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = Depends(verify_user)):
@@ -224,7 +224,6 @@ async def create_env(website_id: str, new_var: NewVariable, decoded_token: Decod
     website.save()
     return {"message": "New variable created"}
 
-
 @router.put("/{website_id}/env/{env_key}")
 async def update_env(website_id: str, env_key: str, new_value: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
@@ -267,8 +266,6 @@ async def delete_env(website_id: str, env_key: str, decoded_token: DecodedToken 
 async def get_all_env(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get all environment variables
-
-    !!! just return a list of keys
     """
     website: Website = Website.get_from_id(website_id)
     if website is None:
