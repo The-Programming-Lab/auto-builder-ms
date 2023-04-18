@@ -121,7 +121,8 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
         "created_at": DatetimeWithNanoseconds.now(),
         "updated_at": None,
         "env": {},
-        "owner_id": user.user_id
+        "owner_id": user.user_id,
+        "type": new_website.type
     })
 
     user.websites[new_website.name] = website.website_id

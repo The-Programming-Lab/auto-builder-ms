@@ -6,12 +6,6 @@ from fastapi import HTTPException, status
 import uuid
 from enum import Enum
 
-class NewWebsite(BaseModel):
-    name: str
-    description: str
-    repo_name: str
-    port_number: Optional[str] = None
-
 class NewVariable(BaseModel):
     name: str
     value: str
@@ -19,6 +13,15 @@ class NewVariable(BaseModel):
 class WebsiteType(str, Enum):
     FRONTEND = "frontend"
     BACKEND = "backend"
+
+
+class NewWebsite(BaseModel):
+    name: str
+    description: str
+    repo_name: str
+    port_number: Optional[str] = None
+    type: WebsiteType
+
 
 class Website(BaseModel):
     website_id: Optional[str]
