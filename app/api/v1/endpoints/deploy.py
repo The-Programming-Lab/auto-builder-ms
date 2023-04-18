@@ -117,6 +117,8 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
     rewrite_name = f"rewrite-{encoded_id}"
 
     paths = ''
+    # !!! make sure image is built
+    # !!! make sure image is deployed and website is acutally created
     for key, value in user.websites.items():
         # get the website type from 
         website: Website = Website.get_from_id(value)
@@ -125,7 +127,6 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
             paths += f"          rewrite ^/user/{username}/{key}(/?)(.*)$ /$2 break;\n"
         paths +=    f"          proxy_pass http://{key}.{namespace}.svc.cluster.local;\n"
         paths +=    "        }\n\n"
-
     changes = {
         '<rewrite-locations>' : paths,
         '<configmap-name>': encoded_id,
@@ -145,8 +146,6 @@ async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_use
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
 
-    # if website.type == WebsiteType.FRONTEND:
-    #     return "frontend"
     
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
