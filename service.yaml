@@ -3,7 +3,7 @@ kind: BackendConfig
 metadata:
   name: auto-builder-ms
 spec:
-  timeoutSec: 30
+  timeoutSec: 120
   connectionDraining:
     drainingTimeoutSec: 300
   healthCheck:

@@ -2,9 +2,9 @@ from pydantic import BaseModel
 from app.core.firebase_config import db
 from typing import Optional
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
-from google.cloud.firestore_v1 import DocumentReference
 from fastapi import HTTPException, status
 import uuid
+from enum import Enum
 
 class NewWebsite(BaseModel):
     name: str
@@ -16,6 +16,10 @@ class NewVariable(BaseModel):
     name: str
     value: str
 
+class WebsiteType(str, Enum):
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+
 class Website(BaseModel):
     website_id: Optional[str]
     created_at: DatetimeWithNanoseconds
@@ -25,6 +29,7 @@ class Website(BaseModel):
     owner_id: str
     port_number: str
     repo_name: str
+    type: WebsiteType
     updated_at: Optional[DatetimeWithNanoseconds]
 
     def save(self):
@@ -40,12 +45,12 @@ class Website(BaseModel):
         website_ref.delete()
 
     @staticmethod
-    def create(website_data: dict) -> DocumentReference:
+    def create(website_data: dict) -> 'Website':
         new_website_id = str(uuid.uuid4())
         website_data["website_id"] = new_website_id
         new_website = Website(**website_data)
         new_website.save()
-        return db.collection('websites').document(new_website_id)
+        return new_website
     
     @staticmethod
     def get_from_id(website_id: str):
@@ -69,7 +74,6 @@ class Website(BaseModel):
             print(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
         return website
-
 
 class User(BaseModel):
     user_id: str
@@ -110,18 +114,19 @@ class User(BaseModel):
             return User.get(user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+# !!! verify which one are not actually optional
 class DecodedToken(BaseModel):
-    name: str
-    picture: str
-    iss: str
-    aud: str
-    auth_time: int
+    name: Optional[str] = None
+    picture: Optional[str] = None
+    iss: Optional[str] = None
+    aud: Optional[str] = None
+    auth_time: Optional[int] = None
     user_id: str
-    sub: str
-    iat: int
-    exp: int
-    email: str
-    email_verified: bool
+    sub: Optional[str] = None
+    iat: Optional[int] = None
+    exp: Optional[int] = None
+    email: Optional[str] = None
+    email_verified: Optional[bool] = None
     firebase: dict
 
     @staticmethod
