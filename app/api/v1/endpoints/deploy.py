@@ -7,7 +7,7 @@ from app.utils.utility import encoded_string
 from app.core.security import verify_user
 from app.core.firebase_config import db
 from app.api.v1.models.deploy import Deploy
-from app.api.v1.models.database import Website, User, DecodedToken
+from app.api.v1.models.database import Website, User, DecodedToken, WebsiteType
 
 
 router = APIRouter(prefix="/deploy", tags=["GCP Actions Deployment/Service/Ingress/Rewrite"])
@@ -117,13 +117,14 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
     rewrite_name = f"rewrite-{encoded_id}"
 
     paths = ''
-    for key, _ in user.websites.items():
-        paths += (
-            f"        location ^~ /user/{username}/{key}" + " {\n"
-            f"          rewrite ^/user/{username}/{key}(/?)(.*)$ /$2 break;\n"
-            f"          proxy_pass http://{key}.{namespace}.svc.cluster.local;\n"
-            "        }\n\n"
-        )
+    for key, value in user.websites.items():
+        # get the website type from 
+        website: Website = Website.get_from_id(value)
+        paths += f"        location ^~ /user/{username}/{key}" + " {\n"
+        if website.type == WebsiteType.BACKEND:
+            paths += f"          rewrite ^/user/{username}/{key}(/?)(.*)$ /$2 break;\n"
+        paths +=    f"          proxy_pass http://{key}.{namespace}.svc.cluster.local;\n"
+        paths +=    "        }\n\n"
 
     changes = {
         '<rewrite-locations>' : paths,
@@ -143,6 +144,9 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
 async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
     website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
+
+    # if website.type == WebsiteType.FRONTEND:
+    #     return "frontend"
     
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
@@ -177,7 +181,7 @@ async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
 
-    apply_service_yaml(website, namespace, user.username, input.main_service_type)
+    apply_service_yaml(website, namespace, user.username)
 
     return "ok"
 
@@ -189,7 +193,7 @@ async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
     namespace = encoded_string(website.owner_id)
     create_namespace(namespace)
 
-    apply_rewrite_yaml(user, namespace, user.username, input.rewrite_service_type)
+    apply_rewrite_yaml(user, namespace, user.username)
 
     return 'ok'
 

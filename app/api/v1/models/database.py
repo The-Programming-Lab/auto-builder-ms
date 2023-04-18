@@ -2,9 +2,9 @@ from pydantic import BaseModel
 from app.core.firebase_config import db
 from typing import Optional
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
-from google.cloud.firestore_v1 import DocumentReference
 from fastapi import HTTPException, status
 import uuid
+from enum import Enum
 
 class NewWebsite(BaseModel):
     name: str
@@ -16,6 +16,10 @@ class NewVariable(BaseModel):
     name: str
     value: str
 
+class WebsiteType(str, Enum):
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+
 class Website(BaseModel):
     website_id: Optional[str]
     created_at: DatetimeWithNanoseconds
@@ -25,6 +29,7 @@ class Website(BaseModel):
     owner_id: str
     port_number: str
     repo_name: str
+    type: WebsiteType
     updated_at: Optional[DatetimeWithNanoseconds]
 
     def save(self):
@@ -69,7 +74,6 @@ class Website(BaseModel):
             print(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
         return website
-
 
 class User(BaseModel):
     user_id: str
