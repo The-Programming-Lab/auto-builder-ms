@@ -56,6 +56,7 @@ async def start_build(website_name: str, decoded_token: DecodedToken = Depends(v
     if response.status_code == 204:
         return {"message": "Workflow dispatched successfully.", "run_id": run_id }
     else:
+        print(response.text)
         return {"message": f"Failed to dispatch workflow. Response code: {response.status_code}"}
 
 @router.get("/build/status/{workflow_id}")
