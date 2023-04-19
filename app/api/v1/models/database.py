@@ -18,7 +18,6 @@ class WebsiteType(str, Enum):
 
 
 class NewWebsite(BaseModel):
-    name: str
     description: str
     repo_name: str
     port_number: Optional[str] = None

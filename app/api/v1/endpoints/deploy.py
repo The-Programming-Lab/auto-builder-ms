@@ -194,10 +194,9 @@ async def service(input: Deploy, decoded_token: DecodedToken = Depends(verify_us
 
 @router.post("/rewrite")
 async def rewrite(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
-    website: Website = Website.get_from_user(input.website_name, decoded_token.user_id)
     user: User = User.get(decoded_token.user_id)
 
-    namespace = encoded_string(website.owner_id)
+    namespace = encoded_string(user.user_id)
     create_namespace(namespace)
 
     apply_rewrite_yaml(user, namespace, user.username)

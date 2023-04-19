@@ -6,7 +6,7 @@ import subprocess
 import json
 
 from app.core.security import verify_user
-from app.api.v1.models.database import Website, User, DecodedToken, NewWebsite, NewVariable
+from app.api.v1.models.database import Website, User, DecodedToken, NewWebsite, NewVariable, WebsiteType
 from app.utils.utility import encoded_string
 from app.core.logging import logger
 from app.api.v1.endpoints.deploy import apply_rewrite_yaml
@@ -59,8 +59,8 @@ service cloud.firestore {
 
 router = APIRouter(prefix="/website", tags=["Database Action Create/Update/Delete"])
 
-@router.post("/")
-async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = Depends(verify_user)):
+@router.post("/{website_name}")
+async def create_website(new_website: NewWebsite, website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Create a new website
 
@@ -75,7 +75,7 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
     """
     user: User = User.get(decoded_token.user_id)
     for website in user.websites.keys():
-        if website == new_website.name:
+        if website == website_name:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Website name already exists")
         
     # check if repo exists 
@@ -115,20 +115,22 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
 
     user.allowed_deployments -= 1
     user.save()
-
+    env = {}
+    if new_website.type == WebsiteType.FRONTEND:
+        env['BASE_PATH'] = f"/user/{user.username}/{website_name}"
     website: Website = Website.create({
-        "name": new_website.name,
+        "name": website_name,
         "description": new_website.description,
         "repo_name": new_website.repo_name,
         "port_number": port_number,
         "created_at": DatetimeWithNanoseconds.now(),
         "updated_at": None,
-        "env": {},
+        "env": env,
         "owner_id": user.user_id,
         "type": new_website.type
     })
 
-    user.websites[new_website.name] = website.website_id
+    user.websites[website_name] = website.website_id
     user.save()
     
     return {"website": website.to_dict()}
@@ -144,18 +146,19 @@ async def get_all_websites(username: str, decoded_token: DecodedToken = Depends(
 
     return {"websites": user.websites}
 
-@router.get("/{website_id}")
-async def get_website(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.get("/{website_name}")
+async def get_website(website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get a website by id
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     return {"website": website.to_dict()}
 
-@router.put("/{website_id}")
-async def update_website(new_website: NewWebsite, website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.put("/{website_name}")
+async def update_website(new_website: NewWebsite, website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Update a website by id
 
@@ -168,7 +171,8 @@ async def update_website(new_website: NewWebsite, website_id: str, decoded_token
     }
     ```
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
@@ -183,12 +187,13 @@ async def update_website(new_website: NewWebsite, website_id: str, decoded_token
 
     return {"website": website.to_dict()}
 
-@router.delete("/{website_id}")
-async def delete_website(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.delete("/{website_name}")
+async def delete_website(website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Delete a website by id
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     user: User = User.get(decoded_token.user_id)
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
@@ -214,8 +219,8 @@ async def delete_website(website_id: str, decoded_token: DecodedToken = Depends(
     apply_rewrite_yaml(user, namespace, user.username)
     return {"message": "Website deleted"}
 
-@router.post("/{website_id}/env")
-async def create_env(website_id: str, new_var: NewVariable, decoded_token: DecodedToken = Depends(verify_user)):
+@router.post("/{website_name}/env")
+async def create_env(website_name: str, new_var: NewVariable, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Create a new environment variable
 
@@ -226,7 +231,8 @@ async def create_env(website_id: str, new_var: NewVariable, decoded_token: Decod
     }
     ```
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
@@ -237,8 +243,8 @@ async def create_env(website_id: str, new_var: NewVariable, decoded_token: Decod
     website.save()
     return {"message": "New variable created"}
 
-@router.put("/{website_id}/env/{env_key}")
-async def update_env(website_id: str, env_key: str, new_value: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.put("/{website_name}/env/{env_key}")
+async def update_env(website_name: str, env_key: str, new_value: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Update environment variable
 
@@ -248,7 +254,8 @@ async def update_env(website_id: str, env_key: str, new_value: str, decoded_toke
     }
     ```
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
@@ -259,12 +266,13 @@ async def update_env(website_id: str, env_key: str, new_value: str, decoded_toke
     website.save()
     return {"message": f"Variable {env_key} updated"}
 
-@router.delete("/{website_id}/env/{env_key}")
-async def delete_env(website_id: str, env_key: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.delete("/{website_name}/env/{env_key}")
+async def delete_env(website_name: str, env_key: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Delete environment variable
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
@@ -275,12 +283,13 @@ async def delete_env(website_id: str, env_key: str, decoded_token: DecodedToken 
     website.save()
     return {"message": "Variable deleted"}
 
-@router.get("/{website_id}/env")
-async def get_all_env(website_id: str, decoded_token: DecodedToken = Depends(verify_user)):
+@router.get("/{website_name}/env")
+async def get_all_env(website_name: str, decoded_token: DecodedToken = Depends(verify_user)):
     """
     Get all environment variables
     """
-    website: Website = Website.get_from_id(website_id)
+    user: User = User.get(decoded_token.user_id)
+    website: Website = Website.get_from_id(user.websites[website_name])
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
