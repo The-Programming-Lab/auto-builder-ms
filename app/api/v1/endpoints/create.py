@@ -2,10 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 import requests
 import re
+import subprocess
+import json
 
-from app.core.security import verify_user, verify_admin
+from app.core.security import verify_user
 from app.api.v1.models.database import Website, User, DecodedToken, NewWebsite, NewVariable
-from app.core.config import GITHUB_TOKEN
+from app.utils.utility import encoded_string
+from app.core.logging import logger
+from app.api.v1.endpoints.deploy import apply_rewrite_yaml
+from app.core.config import IMAGE_PATH
 
 '''
 swap to firestore db
@@ -69,8 +74,6 @@ async def create_website(new_website: NewWebsite, decoded_token: DecodedToken = 
     ```
     """
     user: User = User.get(decoded_token.user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     for website in user.websites.keys():
         if website == new_website.name:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Website name already exists")
@@ -191,15 +194,24 @@ async def delete_website(website_id: str, decoded_token: DecodedToken = Depends(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     if decoded_token.user_id != website.owner_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User does not have access to the website")
+        # remove deployment, service and image
+    namespace = encoded_string(user.user_id)
+    try:
+        subprocess.run(f"kubectl delete deployment {website.name} -n {namespace}", shell=True)
+        subprocess.run(f"kubectl delete service {website.name} -n {namespace}", shell=True)
+        # delete images
+
+        subprocess.check_output(f"gcloud artifacts docker images delete {IMAGE_PATH}{namespace}-{website.name} -q --delete-tags", shell=True)
+    except Exception as e:
+        logger.info(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error deleting website")
+    # update user
     website.delete()
     user.websites.pop(website.name)
+    user.allowed_deployments += 1
     user.save()
-    # !!! remove deployment
-    # !!! delete images
-    # !!! delete deployment
-    # !!! delete service
-    # !!! remove from rewrite
-    # !!! increment allowed deployments
+    # update rewrite
+    apply_rewrite_yaml(user, namespace, user.username)
     return {"message": "Website deleted"}
 
 @router.post("/{website_id}/env")
