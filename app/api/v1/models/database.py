@@ -1,10 +1,12 @@
 from pydantic import BaseModel
-from app.core.firebase_config import db
 from typing import Optional
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 from fastapi import HTTPException, status
 import uuid
 from enum import Enum
+
+from app.core.logging import logger
+from app.core.firebase_config import db
 
 class NewVariable(BaseModel):
     name: str
@@ -62,7 +64,7 @@ class Website(BaseModel):
             website = website_ref.get().to_dict()
             website["website_id"] = website_id
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
         return Website(**website)
     
@@ -74,7 +76,7 @@ class Website(BaseModel):
             website_id = user['websites'][website_name]
             website: Website = Website.get_from_id(website_id)
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
         return website
 
@@ -105,7 +107,7 @@ class User(BaseModel):
             user = user_ref.get().to_dict()
             user["user_id"] = user_id
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return User(**user)
     

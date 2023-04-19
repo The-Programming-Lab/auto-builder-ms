@@ -8,6 +8,8 @@ from app.core.security import verify_user
 from app.core.firebase_config import db
 from app.api.v1.models.deploy import Deploy
 from app.api.v1.models.database import Website, User, DecodedToken, WebsiteType
+from app.core.logging import logger
+from app.utils.utility import run_command_HTTP_exception
 
 
 router = APIRouter(prefix="/deploy", tags=["GCP Actions Deployment/Service/Ingress/Rewrite"])
@@ -29,9 +31,11 @@ def apply_yaml_file(file_name, changes) -> None:
         kubectl_apply = subprocess.Popen(
             ['kubectl', 'apply', '-f', '-'],
             stdin=subprocess.PIPE,
-            universal_newlines=True,
+            stdout=subprocess.PIPE,
+            universal_newlines=True
         )
         stdout, stderr = kubectl_apply.communicate(updated_yaml_data)
+        logger.info(stdout)
 
         if kubectl_apply.returncode != 0:
             raise subprocess.CalledProcessError(
@@ -39,8 +43,8 @@ def apply_yaml_file(file_name, changes) -> None:
             )
 
     except subprocess.CalledProcessError as e:
-        print(e)
-        print(updated_yaml_data)
+        logger.error(e)
+        logger.error(updated_yaml_data)
         raise HTTPException(status_code=500, detail=f"Failed on creating the {file_name}")
     
 def apply_ingress_file(file_name, changes) -> None:
@@ -51,21 +55,22 @@ def apply_ingress_file(file_name, changes) -> None:
     for key, value in changes.items():
         json_data = json_data.replace(key, value)
     json_data = json_data.replace('\n', '')
-    try :
-        subprocess.check_call(f'kubectl patch ingress main --type json -p="{json_data}"', shell=True) 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Ingress operation failed")
+    run_command_HTTP_exception(
+        f'kubectl patch ingress main --type json -p="{json_data}"', 
+        HTTPException(status_code=500, detail="Ingress operation failed")
+    )
 
 def create_namespace(namespace_name):
     try:
         subprocess.check_output(f'kubectl get namespace {namespace_name}', shell=True) 
     except subprocess.CalledProcessError as e:
-        try :
-            subprocess.check_call(f'kubectl create namespace {namespace_name}', shell=True)
-        except subprocess.CalledProcessError as e:
-            print(e)
-            raise HTTPException(status_code=500, detail="Failed to create namespace")
+        run_command_HTTP_exception(
+            f'kubectl create namespace {namespace_name}',
+            HTTPException(status_code=500, detail="Failed to create namespace")
+        )
+    except Exception as e:
+        logger.error(e)
+        raise HTTPException(status_code=500, detail="Failed to create namespace")
 
 def get_most_recent_image(website: Website) -> str:
     image_name = f"{encoded_string(website.owner_id)}-{website.name}"
@@ -74,7 +79,7 @@ def get_most_recent_image(website: Website) -> str:
         output = json.loads(output)
         full_image_name = IMAGE_PATH + image_name + '@' + output[-1]['digest']
     except subprocess.CalledProcessError as e:
-        print(e)
+        logger.error(e)
         raise HTTPException(status_code=404, detail="Image not found")
     return full_image_name
 
@@ -139,7 +144,10 @@ def apply_rewrite_yaml(user: User, namespace: str, username: str) -> None:
 
     apply_yaml_file('rewrite', changes)
     # restart rewrite deployment to apply changes
-    subprocess.check_call(f"kubectl rollout restart deployment {rewrite_name}", shell=True) 
+    run_command_HTTP_exception(
+        f"kubectl rollout restart deployment {rewrite_name}", 
+        HTTPException(status_code=500, detail="Failed to restart rewrite deployment")
+    )
 
 @router.post("/")
 async def deploy(input: Deploy, decoded_token: DecodedToken = Depends(verify_user)):
@@ -230,7 +238,7 @@ async def ingress_path_remove(decoded_token: DecodedToken = Depends(verify_user)
         except ValueError:
             raise Exception('No path for User')
     except Exception as e:
-        print(e)
+        logger.error(e)
         raise HTTPException(status_code=400, detail=str(e))
     
     changes = {
