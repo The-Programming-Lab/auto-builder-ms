@@ -1,14 +1,10 @@
 from fastapi import APIRouter, Depends
 import requests
-import subprocess
-import os
-import time
-
 from app.utils.utility import encoded_string
 from app.core.config import PROJECT_ID, GITHUB_TOKEN, REPO_BUILDER_PATH, REPO_WORKFLOW_ID
-from app.core.security import verify_user, verify_admin
-from app.core.firebase_config import db
+from app.core.security import verify_user
 from app.api.v1.models.database import Website, DecodedToken, WebsiteType
+from app.core.logging import logger
 
 
 
@@ -56,7 +52,7 @@ async def start_build(website_name: str, decoded_token: DecodedToken = Depends(v
     if response.status_code == 204:
         return {"message": "Workflow dispatched successfully.", "run_id": run_id }
     else:
-        print(response.text)
+        logger.error(response.text)
         return {"message": f"Failed to dispatch workflow. Response code: {response.status_code}"}
 
 @router.get("/build/status/{workflow_id}")
