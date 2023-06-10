@@ -15,9 +15,9 @@ env:
   GAR_LOCATION: us-central1 # TODO: update region of the Artifact Registry
   GKE_CLUSTER: main    # TODO: update to cluster name
   GKE_ZONE: us-central1-c   # TODO: update to cluster zone
-  DEPLOYMENT_NAME: auto-builder # TODO: update to deployment name
+  DEPLOYMENT_NAME: auto-builder-ms # TODO: update to deployment name
   REPOSITORY: main # TODO: update to Artifact Registry docker repository
-  IMAGE: auto-builder
+  IMAGE: auto-builder-ms
   PORT_NUMBER: 8000
 
 jobs:
