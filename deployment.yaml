@@ -16,6 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auto-builder-ms
+  namespace: tpl
 spec:
   replicas: 1
   selector:
@@ -46,6 +47,7 @@ apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: auto-builder-ms-hpa
+  namespace: tpl
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
