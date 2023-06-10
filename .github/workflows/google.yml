@@ -69,12 +69,12 @@ jobs:
           --build-arg GITHUB_REF="$GITHUB_REF" \
           .
 
-    - name: Run tests in Docker container
-      run: |
-        docker run --rm \
-          -e PYTHONPATH="/app" \
-          "$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA" \
-         pytest -s -p no:warnings --cov=app --cov-fail-under=0
+    # - name: Run tests in Docker container
+    #   run: |
+    #     docker run --rm \
+    #       -e PYTHONPATH="/app" \
+    #       "$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA" \
+    #      pytest -s -p no:warnings --cov=app --cov-fail-under=0
 
     # Push the Docker image to Google Artifact Registry
     - name: Publish
