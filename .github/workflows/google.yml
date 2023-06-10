@@ -12,12 +12,12 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
-  GAR_LOCATION: us-west1 # TODO: update region of the Artifact Registry
+  GAR_LOCATION: us-central1 # TODO: update region of the Artifact Registry
   GKE_CLUSTER: main    # TODO: update to cluster name
-  GKE_ZONE: us-central1-b   # TODO: update to cluster zone
-  DEPLOYMENT_NAME: ${{ secrets.DEPLOYMENT_NAME}} # TODO: update to deployment name
-  REPOSITORY: hello-repo # TODO: update to Artifact Registry docker repository
-  IMAGE: ${{ secrets.DEPLOYMENT_NAME}}
+  GKE_ZONE: us-central1-c   # TODO: update to cluster zone
+  DEPLOYMENT_NAME: auto-builder # TODO: update to deployment name
+  REPOSITORY: main # TODO: update to Artifact Registry docker repository
+  IMAGE: auto-builder
   PORT_NUMBER: 8000
 
 jobs:
