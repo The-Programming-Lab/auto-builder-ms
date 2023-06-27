@@ -6,7 +6,7 @@ import uuid
 from enum import Enum
 
 from app.core.logging import logger
-from app.core.firebase_config import db
+from app.core.database import db
 
 class NewVariable(BaseModel):
     name: str
