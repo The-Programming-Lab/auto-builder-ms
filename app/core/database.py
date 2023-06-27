@@ -1,12 +1,13 @@
 from firebase_admin import credentials, initialize_app, firestore
-from app.core.config import FIREBASE_AUTH_FILE
+import os
+
 from app.core.logging import logger
 
 
 
 # initialize firebase auth and db
 try :
-    cred = credentials.Certificate(FIREBASE_AUTH_FILE)
+    cred = credentials.Certificate(os.getenv("GOOGLE_KEY_PATH"))
     initialize_app(cred)
     db = firestore.client()
 except Exception as e:

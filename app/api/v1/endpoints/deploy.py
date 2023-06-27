@@ -1,16 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 import subprocess
 import json
+import os
 
-from app.core.config import IMAGE_PATH, CLUSTER_ZONE, PROJECT_ID
 from app.utils.utility import encoded_string
 from app.core.security import verify_user
-from app.core.firebase_config import db
+from app.core.database import db
 from app.api.v1.models.deploy import Deploy
 from app.api.v1.models.database import Website, User, DecodedToken, WebsiteType
 from app.core.logging import logger
 from app.utils.utility import run_command_HTTP_exception
 
+IMAGE_PATH = os.getenv("IMAGE_PATH")
+# CLUSTER_ZONE = os.getenv("CLUSTER_ZONE")
+PROJECT_ID = os.getenv("PROJECT_ID")
+
+# !!! have to create namespace first 
 
 router = APIRouter(prefix="/deploy", tags=["GCP Actions Deployment/Service/Ingress/Rewrite"])
 
@@ -75,7 +80,7 @@ def create_namespace(namespace_name):
 def get_most_recent_image(website: Website) -> str:
     image_name = f"{encoded_string(website.owner_id)}-{website.name}"
     try: 
-        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/{PROJECT_ID}/hello-repo/{image_name} --format=json --sort-by=timestamp", shell=True)
+        output = subprocess.check_output(f"gcloud container images list-tags us-west1-docker.pkg.dev/{PROJECT_ID}/host/{image_name} --format=json --sort-by=timestamp", shell=True)
         output = json.loads(output)
         full_image_name = IMAGE_PATH + image_name + '@' + output[-1]['digest']
     except subprocess.CalledProcessError as e:

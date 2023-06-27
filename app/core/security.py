@@ -1,6 +1,6 @@
 from firebase_admin import auth
 from fastapi import HTTPException, status, Depends
-from app.core.firebase_config import db
+from app.core.database import db
 from fastapi.security import HTTPBearer
 
 from app.api.v1.models.database import DecodedToken

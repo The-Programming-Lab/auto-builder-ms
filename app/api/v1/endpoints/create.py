@@ -3,14 +3,16 @@ from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 import requests
 import re
 import subprocess
-import json
+import os
 
 from app.core.security import verify_user
 from app.api.v1.models.database import Website, User, DecodedToken, NewWebsite, NewVariable, WebsiteType
 from app.utils.utility import encoded_string
 from app.core.logging import logger
 from app.api.v1.endpoints.deploy import apply_rewrite_yaml
-from app.core.config import IMAGE_PATH
+
+IMAGE_PATH = os.getenv("IMAGE_PATH")
+
 
 '''
 swap to firestore db

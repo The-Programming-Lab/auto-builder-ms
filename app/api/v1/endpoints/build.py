@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Depends
 import requests
+import os
+
 from app.utils.utility import encoded_string
-from app.core.config import PROJECT_ID, GITHUB_TOKEN, REPO_BUILDER_PATH, REPO_WORKFLOW_ID
 from app.core.security import verify_user
 from app.api.v1.models.database import Website, DecodedToken, WebsiteType
 from app.core.logging import logger
 
+PROJECT_ID = os.getenv("PROJECT_ID")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_BUILDER_PATH = os.getenv("REPO_BUILDER_PATH")
+REPO_WORKFLOW_ID = os.getenv("REPO_WORKFLOW_ID")
 
+# !!! get list of images with tag and date
 
+# !!! created website has  input url
+
+# website image for card, website url for logo
+# host and store images on gcp
 
 
 router = APIRouter(prefix="/github", tags=["GitHub Actions Workflow/Repo"])
